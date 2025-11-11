@@ -1,0 +1,71 @@
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+
+#include "prod.h"
+
+BigNum *parArrayProd(int a[], int i, int j, int p) {
+  // Programe aca una version paralela del producto de los enteros
+  // de un arreglo desde los indices i al j, usando p threads
+
+  // Error inicial
+    if (i>j) {
+        fprintf(stderr, "Asercion fallida: i > j\n");
+        exit(1);
+    }
+
+  // La solucion es trivial si i==j
+    if (i == j) {
+        return smallNum(a[i]);
+    }
+
+  // Para el caso en que p es 1, debe llamar a la funcion seqArrayProd
+    if (p == 1) {
+        return seqArrayProd(a, i, j);
+    }
+  // Estructura para pasarle argumentos al thread
+    typedef struct {
+        int *a;
+        int i;
+        int j;
+        int p;
+        BigNum *res;
+    } Args;
+  
+  // Dividir en 2
+    int h = (i + j) / 2;
+  
+  // Inicializar estructura proceso hijo (lado izquierdo)
+    Args args = {a, i, h, p/2, NULL};
+    
+  // Inicializar id del thread
+    pthread_t thread;
+  
+  // Inicializar proceso con error si se crea mal (distinto de 0)
+    if (pthread_create(&thread, NULL, (void *(*)(void *))parArrayProd, &args) != 0) {
+    perror("pthread_create");
+    exit(1);
+    }
+    
+  // Calcular mitad derecha en thread actual  
+    BigNum *right = parArrayProd(a, h+1, j, p - p/2);
+    
+  
+  // Esperar al thread izquierdo
+    if (pthread_join(thread, NULL) != 0) {
+        perror("pthread_join");
+        exit(1);
+    }
+  
+  // Multiplicación de los resultados
+    BigNum *prod = bigMul(args.res, right);
+  
+  // Liberar memoria
+    freeBigNum(args.res);
+    freeBigNum(right);
+    return prod;
+}
+
+
